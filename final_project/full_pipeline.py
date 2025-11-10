@@ -13,7 +13,7 @@ import os
 mp_face_mesh = mp.solutions.face_mesh
 mp_selfie_segmentation = mp.solutions.selfie_segmentation
 
-HAIR_MODEL_PATH = '/Users/divija/Divi Drive/workplace/Princeton/Sem 5/Carlab/carlab_2025/final_project/hair_segmenter.tflite'
+HAIR_MODEL_PATH = '\Users\cynt1\Downloads\college\fall25\ece302\carlab_2025\final_project\hair_segmenter.tflite'
 
 # -------------------------------------------------
 # Facial feature landmark groups
