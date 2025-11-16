@@ -23,7 +23,7 @@ if __name__ == "__main__":
     send_cmd(s, "PING")
     time.sleep(0.1)
     # example commands
-    send_cmd(s, "MOVE 135 80 0 0")      # move forward
+    send_cmd(s, "MOVE 100 80 0 0")      # move forward
     time.sleep(0.5)
     send_cmd(s, "STOP")
     

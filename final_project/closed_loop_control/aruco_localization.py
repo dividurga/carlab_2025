@@ -80,35 +80,26 @@ def get_pose(frame):
     if robot_corners is None:
         return None, frame
 
-        # -------------------------------------------------
-    # Compute orientation (theta) from local Y axis
     # -------------------------------------------------
-    
-    # corner ordering:
-    # 0 = top-left
-    # 1 = top-right
-    # 2 = bottom-right
-    # 3 = bottom-left
-    
-    c0 = robot_corners[0]   # top-left
-    c3 = robot_corners[3]   # bottom-left
-    
-    # Convert both corners into world coordinates
-    p0 = np.array([[c0[0], c0[1], 1.0]]).T
-    p3 = np.array([[c3[0], c3[1], 1.0]]).T
+    # Compute orientation (theta) from local +Y axis
+    # -------------------------------------------------
 
-    p0_world = (H @ p0)
-    p3_world = (H @ p3)
+    # 0 = top-left, 3 = bottom-left → Y axis on robot
+    c0 = robot_corners[0]
+    c3 = robot_corners[3]
+
+    p0_world = (H @ np.array([[c0[0], c0[1], 1]]).T)
+    p3_world = (H @ np.array([[c3[0], c3[1], 1]]).T)
 
     p0_world /= p0_world[2, 0]
     p3_world /= p3_world[2, 0]
 
-    # local Y axis in world coordinates
+    # robot local +Y vector in world coordinates
     vwx = p0_world[0, 0] - p3_world[0, 0]
     vwy = p0_world[1, 0] - p3_world[1, 0]
 
-    # angle between this vector and global +X
-    theta_world = np.degrees(np.arctan2(vwy, vwx))
+    # angle relative to global +Y (0,1)
+    theta_world = np.degrees(np.arctan2(vwx, vwy))
 
     # -------------------------------------------------
     # Draw overlay
