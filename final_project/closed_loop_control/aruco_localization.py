@@ -116,7 +116,7 @@ def get_pose(frame):
 # -------------------------------------------------
 if __name__ == "__main__":
     print("🎥 Opening camera... Press 'q' to quit.")
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(1)
 
     if not cap.isOpened():
         print("❌ Error: could not open camera.")
