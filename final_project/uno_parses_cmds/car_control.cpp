@@ -135,7 +135,7 @@ void carMoveFieldCentric(int16_t angle, int8_t power, int16_t heading, bool drif
   int32_t error = 0;
   int32_t offset = 0;
   int8_t rot = 0;
-
+  Serial.println("we came here");
   currentHeading = compassReadAngle();
 
   error = currentHeading - originHeading - heading;
@@ -165,4 +165,5 @@ void carMoveFieldCentric(int16_t angle, int8_t power, int16_t heading, bool drif
   */
 void carResetHeading() {
   originHeading = compassReadAngle();
+  Serial.println(compassReadAngle());
 }

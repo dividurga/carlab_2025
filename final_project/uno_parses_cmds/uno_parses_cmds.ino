@@ -1,5 +1,5 @@
 #include "car_control.h"   // your existing file with carMove, carStop, etc.
-
+#include "compass.h"
 String buf = "";
 
 void setup() {
@@ -44,7 +44,7 @@ void processCommand(String line) {
     Serial.print("  rot="); Serial.print(rot);
     Serial.print("  drift="); Serial.println(drift);
 
-    carMove(angle, power, rot, drift);
+    carMoveFieldCentric(angle, power, rot, drift);
   }
 
   // -------------------------------------------------
@@ -54,15 +54,6 @@ void processCommand(String line) {
     Serial.println("STOP");
     carStop();
   }
-
-  // -------------------------------------------------
-  // RESET_HEADING
-  // -------------------------------------------------
-  else if (cmd == "RESET_HEADING") {
-    Serial.println("RESET_HEADING");
-    carResetHeading();
-  }
-
   // -------------------------------------------------
   // MOTORS <p1> <p2> <p3> <p4>
   // -------------------------------------------------
@@ -85,7 +76,18 @@ void processCommand(String line) {
 
     carSetMotors(p[0], p[1], p[2], p[3]);
   }
-
+  else if (cmd == "RST") {
+    Serial.println("RESET_HEADING");
+    carResetHeading();
+    
+  }
+  else if (cmd == "CALIBRATE") {
+    Serial.println("Starting compass calibration...");
+    compassCalibrate();
+}
+else if (cmd == "READ") {
+    Serial.println(compassReadAngle());
+}
   // -------------------------------------------------
   // Unknown command
   // -------------------------------------------------
@@ -110,4 +112,38 @@ void loop() {
       if (buf.length() > 200) buf = "";   // safety clear
     }
   }
+}
+void compassCalibrate() {
+  Serial.println("Starting compass calibration...");
+
+  const uint32_t CALIB_TIMEOUT_MS = 90000;   // 90 seconds
+  uint32_t startTime = millis();
+
+  // Start spinning CCW for calibration
+  carMove(0, 0, 100);
+
+  // Start collecting calibration samples
+  compassCalibrateStart();
+
+  while (!compassCalibrateDone()) {
+
+    // --- TIMEOUT CHECK ---
+    if (millis() - startTime > CALIB_TIMEOUT_MS) {
+      Serial.println("Calibration timed out.");
+      break;
+    }
+
+    // --- Perform one calibration step ---
+    bool changed = compassCalibrateLoop();
+
+    if (changed) {
+      Serial.println("calibrated some");
+    }
+  }
+
+  // Stop rotating
+  carStop();
+  Serial.println("Compass calibration done (or timed out).");
+
+  delay(1000);
 }

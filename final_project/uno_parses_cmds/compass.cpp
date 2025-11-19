@@ -163,19 +163,32 @@ bool compassCalibrateLoop() {
  * @return int16_t average angle
  */
 int16_t compassReadAngle() {
+  static float filtered = 0.0f;
+  static bool initialized = false;
+  const float alpha = 0.2f;  // smoothing factor (0–1; lower = smoother)
+
   _compass.read();
-  int16_t value = compassGetAzimuth();
+  float raw = (float) compassGetAzimuth();  // 0–360
 
-  #if (AVERAGE_FILTER)
-    filterBufferSum = filterBufferSum - filterBuffer[filterBufferIndex] + value;
-    filterBuffer[filterBufferIndex] = value;
-    filterBufferIndex++;
-    if (filterBufferIndex >= AVERAGE_FILTER_SIZE) filterBufferIndex = 0;
-    value = filterBufferSum / AVERAGE_FILTER_SIZE;
-  #endif
+  if (!initialized) {
+    filtered = raw;
+    initialized = true;
+  } else {
+    float diff = raw - filtered;
 
-  return value;
+    // unwrap around 0/360
+    if (diff > 180.0f)  diff -= 360.0f;
+    if (diff < -180.0f) diff += 360.0f;
+
+    filtered += alpha * diff;
+
+    if (filtered < 0.0f)    filtered += 360.0f;
+    if (filtered >= 360.0f) filtered -= 360.0f;
+  }
+
+  return (int16_t)filtered;
 }
+
 
 /**
  * @brief Calculate the angle from the values in the x, y direction of the compass sensor
@@ -183,12 +196,22 @@ int16_t compassReadAngle() {
  * @return int16_t angle
  */
 int16_t compassGetAzimuth() {
-  _compass.read();
+  // assume _compass.read() was already called this cycle
+  int16_t x = _compass.getX();
   int16_t y = _compass.getY();
-  int16_t z = _compass.getZ();
-  int heading = atan2(y, -z) * RAD_TO_DEG;
-  return heading;
+
+  // Choose sign/orientation empirically; this is a good starting guess:
+  float heading = atan2(-x, y);   // [-pi, pi]
+
+  heading *= 180.0 / PI;          // to degrees
+
+  if (heading < 0) {
+    heading += 360.0;
+  }
+
+  return (int16_t)heading;
 }
+
 
 /**
  * @brief Compass init 

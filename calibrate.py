@@ -19,9 +19,8 @@ def send_cmd(s, cmd):
 if __name__ == "__main__":
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect((ESP32_IP, ESP32_PORT))
-    time.sleep(0.1)
-    # example commands
-    send_cmd(s, "READ")      # move forward
-    time.sleep(100)
-    send_cmd(s, "STOP")
+    # send_cmd(s, "CALIBRATE")      # calibrate
+    # print("calibrated")
+    print("rst")
+    send_cmd(s, "RST")
     
