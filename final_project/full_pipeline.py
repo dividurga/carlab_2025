@@ -116,11 +116,11 @@ def image_to_minimal_line_drawing_simplified(image_path, output_path):
     for name, idxs in FACIAL_FEATURES.items():
         if "center" in name: continue
         draw_feature(final_line_drawing, face_landmarks.landmark, idxs)
-    # for iris_name, iris_indices in EYEBALLS.items():
-    #     if "left" in iris_name:
-    #         draw_eyeball_clipped(final_line_drawing, face_landmarks.landmark, iris_indices, 160, 145)
-    #     else:
-    #         draw_eyeball_clipped(final_line_drawing, face_landmarks.landmark, iris_indices, 385, 374)
+    for iris_name, iris_indices in EYEBALLS.items():
+        if "left" in iris_name:
+            draw_eyeball_clipped(final_line_drawing, face_landmarks.landmark, iris_indices, 160, 145)
+        else:
+            draw_eyeball_clipped(final_line_drawing, face_landmarks.landmark, iris_indices, 385, 374)
 
     # ---- Hair segmentation ----
     hair_outline = np.ones((H, W), dtype=np.uint8) * 255

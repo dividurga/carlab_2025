@@ -47,8 +47,8 @@ def animate_strokes(strokes, interval_ms=100, save_path=None):
     ys_all = [p[1] for p in all_pts]
 
     fig, ax = plt.subplots(figsize=(6, 8))
-    ax.set_xlim(min(xs_all)-10, max(xs_all)+10)
-    ax.set_ylim(max(ys_all)+10, min(ys_all)-10)  # invert Y-axis
+    ax.set_xlim(0, 80)
+    ax.set_ylim(0, 45)  # inverted Y axis (top = 0, bottom = 45)
     ax.set_aspect("equal")
     ax.set_title("Pen-Up Animation from CSV")
 

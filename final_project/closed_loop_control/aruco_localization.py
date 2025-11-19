@@ -15,9 +15,9 @@ ROBOT_ID = 4  # marker ID on the robot
 # Real-world coordinates (cm) of corner markers
 WORLD_POINTS = {
     0: (0, 0),
-    1: (60, 0),    # bottom-right
-    2: (60, 48),   # top-right
-    3: (0, 48)     # top-left
+    1: (80, 0),    # bottom-right
+    2: (80, 45),   # top-right
+    3: (0, 45)     # top-left
 }
 
 # -------------------------------------------------

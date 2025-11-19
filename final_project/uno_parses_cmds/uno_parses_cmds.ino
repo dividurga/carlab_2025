@@ -44,7 +44,7 @@ void processCommand(String line) {
     Serial.print("  rot="); Serial.print(rot);
     Serial.print("  drift="); Serial.println(drift);
 
-    carMoveFieldCentric(angle, power, rot, drift);
+    carMove(angle, power, rot, drift);
   }
 
   // -------------------------------------------------

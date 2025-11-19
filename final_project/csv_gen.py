@@ -3,7 +3,8 @@ import numpy as np
 from collections import deque
 import csv
 import math
-
+W=1920
+H=1080
 # ---------------------------------------------------
 # RDP Simplification
 # ---------------------------------------------------
@@ -166,16 +167,21 @@ def tsp_order_strokes(paths):
 # ---------------------------------------------------
 # Save to CSV
 # ---------------------------------------------------
-def save_paths_to_csv(paths, csv_path):
+def save_paths_to_csv(paths, csv_path, W, H):
     with open(csv_path, "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["x", "y"])
         for p in paths:
             for (x, y) in p:
-                writer.writerow([x, y])
+                wx, wy = pixel_to_world(x, y, W, H)
+                writer.writerow([wx, 45-wy])
             writer.writerow([])
 
-
+def pixel_to_world(x, y, W, H):
+    # W, H are original image pixel dims
+    world_x = x * (80.0 / W)
+    world_y = y * (45.0 / H)
+    return world_x, world_y
 # ---------------------------------------------------
 # Crop top/bottom
 # ---------------------------------------------------
@@ -196,7 +202,7 @@ def extract_coords_from_skeleton_image(path_to_image, csv_path):
     _, bin_img = cv2.threshold(img, 127, 255, cv2.THRESH_BINARY)
 
     bin_img = remove_top_bottom(bin_img)
-
+    
     # 1. Generate raw strokes
     raw_paths = skeleton_to_paths(bin_img)
 
@@ -210,7 +216,7 @@ def extract_coords_from_skeleton_image(path_to_image, csv_path):
     tsp_paths = tsp_order_strokes(simplified)
 
     # 5. Save
-    save_paths_to_csv(tsp_paths, csv_path)
+    save_paths_to_csv(tsp_paths, csv_path, W, H)
 
     return tsp_paths
 

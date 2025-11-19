@@ -27,7 +27,7 @@ void QMC6310::read() {
   _x = (int16_t)((datas[1] << 8) | datas[0]);
   _y = (int16_t)((datas[3] << 8) | datas[2]);
   _z = (int16_t)((datas[5] << 8) | datas[4]);
-
+  
   // calibrate:
   if (this->_calibrated) {
     int x_offset = (_calibrationData[0] + _calibrationData[1]) / 2;
@@ -46,7 +46,11 @@ void QMC6310::read() {
     _x = (int16_t)((_x - x_offset) * x_scale);
     _y = (int16_t)((_y - y_offset) * y_scale);
     _z = (int16_t)((_z - z_offset) * z_scale);
+    
   }
+  // Serial.println(_x);
+  // Serial.println(_y);
+  // Serial.println(_z);
 }
 
 int16_t QMC6310::getX() {return _x;}
