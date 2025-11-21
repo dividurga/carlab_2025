@@ -16,6 +16,6 @@ if __name__ == "__main__":
     points = load_csv("/Users/divija/Divi Drive/workplace/Princeton/Sem 5/Carlab/carlab_2025/star.csv")
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect((ESP32_IP, ESP32_PORT))
-    video = cv2.VideoCapture(1)
+    video = cv2.VideoCapture(0)
     time.sleep(1)
     move_to_points(points, s, video)

@@ -191,7 +191,7 @@ FACE_DETECT_CONF = 0.6
 mp_face = mp.solutions.face_detection
 
 def capture_centered_face(output_path=CAPTURE_PATH):
-    cap = cv2.VideoCapture(1)
+    cap = cv2.VideoCapture(0)
     detector = mp_face.FaceDetection(model_selection=0, min_detection_confidence=FACE_DETECT_CONF)
     print("📷 Starting camera. Center your face to capture automatically...")
 

@@ -1,12 +1,19 @@
 #include "car_control.h"   // your existing file with carMove, carStop, etc.
 #include "compass.h"
+#include <Servo.h>
 String buf = "";
+
+Servo servo;
+int servoPin = 9;
 
 void setup() {
   Serial.begin(115200);      // UART from ESP32-CAM (pins 0 and 1)
   carBegin();                // initialize motors, PWM, etc.
   Serial.println("UNO car controller ready");
+  servo.attach(servoPin);
 }
+
+int angle = 90;
 
 // --------------------------------------------------------------------
 //  Parse one full line and call the corresponding low-level functions
@@ -14,6 +21,8 @@ void setup() {
 void processCommand(String line) {
   line.trim();
   if (line.length() == 0) return;
+
+  
 
   // ---- split command ----
   int firstSpace = line.indexOf(' ');
@@ -88,6 +97,22 @@ void processCommand(String line) {
 else if (cmd == "READ") {
     Serial.println(compassReadAngle());
 }
+  // move from 90 to 200 degrees
+  else if (cmd == "UP"){
+  for(int angle = 90; angle < 200; angle++)  
+  {                                  
+    servo.write(angle);               
+    delay(5);                   
+  } 
+  }
+  else if (cmd == "D"){
+  // move back from 200 to 90 degrees
+  for(int angle = 200; angle > 90; angle--)    
+  {                                
+    servo.write(angle);           
+    delay(5);       
+  } 
+  }
   // -------------------------------------------------
   // Unknown command
   // -------------------------------------------------
@@ -111,7 +136,7 @@ void loop() {
       buf += c;
       if (buf.length() > 200) buf = "";   // safety clear
     }
-  }
+  }  
 }
 void compassCalibrate() {
   Serial.println("Starting compass calibration...");
