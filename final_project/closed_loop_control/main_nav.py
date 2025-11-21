@@ -8,9 +8,16 @@ ESP32_IP = "192.168.4.1"
 ESP32_PORT = 8888
 
 def load_csv(path):
+    pts = []
     with open(path) as f:
-        rdr = csv.reader(f)
-        return [(float(x), float(y)) for x, y in rdr]
+        for line in f:
+            line = line.strip()
+            if line == "":
+                pts.append(None)  # <-- MARK BLANK LINE
+                continue
+            x, y = map(float, line.split(","))
+            pts.append((x, y))
+    return pts
 
 if __name__ == "__main__":
     points = load_csv("/Users/divija/Divi Drive/workplace/Princeton/Sem 5/Carlab/carlab_2025/star.csv")

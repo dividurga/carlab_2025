@@ -66,16 +66,15 @@ def send_cmd(s, cmd):
 
 # ========================================================================
 
-def move_to_points(points, pen_states, s, video):
+def move_to_points(points, s, video):
 
-    MAX_POWER = 100
+    MAX_POWER = 30
     MIN_POWER = 0
-    MIN_DRIVE_POWER = 30
-    K_DIST = 20
+    MIN_DRIVE_POWER = 0
+    K_DIST = 40
     STOP_DIST = 1
-
+    STOP_DIST_FINAL = 2
     idx = 0
-    last_pen = None    # <---- added
 
     print("Press 'q' at any time to STOP and quit.")
 
@@ -88,6 +87,19 @@ def move_to_points(points, pen_states, s, video):
             send_cmd(s, "STOP")
             return  # exit function entirely
 
+        # # ---------------------------------------------------------------
+        # # PEN UP / DOWN HANDLING (minimal addition)
+        # # ---------------------------------------------------------------
+        # if points[idx] is None:
+        #     print("PEN UP")
+        #     send_cmd(s, "UP")
+        #     idx += 1
+        #     continue
+
+        # if idx == 0 or points[idx-1] is None:
+        #     print("PEN DOWN")
+        #     send_cmd(s, "D")
+
         # ---------------------------------------------------------------
         # Tracking loop
         ret, frame = video.read()
@@ -96,7 +108,7 @@ def move_to_points(points, pen_states, s, video):
             continue
 
         x, y, theta = pose
-        target = np.array(points[idx])
+        target = np.array(points[idx])   # SAFE because we've checked None
         current = np.array([x, y])
         diff = target - current
         dist = np.linalg.norm(diff)
@@ -106,39 +118,34 @@ def move_to_points(points, pen_states, s, video):
         print(f"Current: {current}")
         print(f"Distance: {dist:.2f}")
 
-        # ---------------------------------------------------------------
-        # PEN UP / DOWN (only addition)
-        # ---------------------------------------------------------------
-        curr_pen = pen_states[idx]
-        if curr_pen != last_pen:
-            if curr_pen == 0:
-                print("PEN UP")
-                send_cmd(s, "PEN 0")
-            else:
-                print("PEN DOWN")
-                send_cmd(s, "PEN 1")
-            last_pen = curr_pen
-
+        if(idx == (len(points)-1) and dist < STOP_DIST_FINAL):
+               send_cmd(s, "STOP")
+               break
         # ARRIVAL
         if dist < STOP_DIST:
             idx += 1
-            if idx == (len(points)-1):
-               send_cmd(s, "STOP")
-               break
             continue
-
+        
         # DESIRED ANGLE
         desired_angle = np.degrees(np.arctan2(diff[1], diff[0]))
         angle_error = 90 - (desired_angle + theta)
+        print(angle_error)
+        print(desired_angle)
 
-        # POWER
-        raw_power = K_DIST * np.power(dist, 0.3)
-        power = int(np.clip(raw_power, MIN_POWER, MAX_POWER))
+        # HEADING ALIGNMENT
+        desired_heading = 0
+        heading_error = theta - desired_heading
 
-        if power < MIN_DRIVE_POWER:
-            power = MIN_DRIVE_POWER
+        # # POWER
+        # raw_power = K_DIST * np.power(dist, 0.3)
+        # power = int(np.clip(raw_power, MIN_POWER, MAX_POWER))
 
-        print(f"Power = {power}   (raw {raw_power:.2f})")
+        # if power < MIN_DRIVE_POWER:
+        #     power = MIN_DRIVE_POWER
 
-        cmd = f"MOVE {int(angle_error)} {power} 0 0"
+        power = 30
+        print(f"Power = {power}, angle_error: {angle_error}")
+
+        cmd = f"MOVE {int(angle_error)} {int(power)} 0 0"
         send_cmd(s, cmd)
+
