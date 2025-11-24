@@ -1,7 +1,8 @@
 # aruco_localization.py
 import cv2
 import numpy as np
-
+VIDEO_OUTPUT = "aruco_output.mp4"
+VIDEO_FPS = 20
 # -------------------------------------------------
 # CONFIGURATION
 # -------------------------------------------------

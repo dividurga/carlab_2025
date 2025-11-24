@@ -1,0 +1,91 @@
+import cv2
+import numpy as np
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+
+# -------------------------------------------
+# CONFIGURATION
+# -------------------------------------------
+# Chessboard (inner corners)
+CHESSBOARD_COLS = 9      # inner corners across
+CHESSBOARD_ROWS = 6      # inner corners down
+
+# Physical square size (mm)
+SQUARE_SIZE_MM = 25
+
+# Output PNG image resolution
+OUTPUT_PX = 2000
+
+# -------------------------------------------
+# Generate chessboard using cv2.aruco
+# -------------------------------------------
+board = cv2.aruco.CharucoBoard(
+    (CHESSBOARD_COLS, CHESSBOARD_ROWS),
+    SQUARE_SIZE_MM,
+    SQUARE_SIZE_MM / 2,
+    cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
+)
+
+# The above generates a ChArUco board (checkerboard + ArUco markers)
+# But for a *pure chessboard*, manually draw it:
+
+def generate_chessboard(cols, rows, square_px):
+    """Generate a pure chessboard image."""
+    # Total squares = inner corners + 1
+    W = (cols + 1) * square_px
+    H = (rows + 1) * square_px
+
+    board = np.ones((H, W), dtype=np.uint8) * 255
+
+    for r in range(rows + 1):
+        for c in range(cols + 1):
+            if (r + c) % 2 == 0:
+                cv2.rectangle(
+                    board,
+                    (c * square_px, r * square_px),
+                    ((c + 1) * square_px, (r + 1) * square_px),
+                    color=0,
+                    thickness=-1
+                )
+    return board
+
+# Each square size in pixels
+square_px = OUTPUT_PX // (CHESSBOARD_COLS + 1)
+
+print("Generating chessboard...")
+img = generate_chessboard(CHESSBOARD_COLS, CHESSBOARD_ROWS, square_px)
+
+# Save PNG
+png_name = "chessboard_{}_{}.png".format(CHESSBOARD_COLS, CHESSBOARD_ROWS)
+cv2.imwrite(png_name, img)
+print("Saved:", png_name)
+
+# -------------------------------------------
+# Save PDF for perfect printing
+# -------------------------------------------
+pdf_name = "chessboard_{}_{}.pdf".format(CHESSBOARD_COLS, CHESSBOARD_ROWS)
+c = canvas.Canvas(pdf_name, pagesize=letter)
+
+# Convert pixels → inches (PDF uses points = 1/72 inch)
+px_per_inch = 300
+scale = 72 / px_per_inch  # convert pixel to PDF points
+
+# Image dimensions on page
+pdf_width = img.shape[1] * scale
+pdf_height = img.shape[0] * scale
+
+# Center on page
+page_w, page_h = letter
+x = (page_w - pdf_width) / 2
+y = (page_h - pdf_height) / 2
+
+# Save temporary PNG for embedding
+temp_name = "temp_board.png"
+cv2.imwrite(temp_name, img)
+
+c.drawImage(temp_name, x, y, width=pdf_width, height=pdf_height)
+c.showPage()
+c.save()
+
+print("Saved:", pdf_name)
+print("Done!")
