@@ -118,16 +118,16 @@ def move_to_points(points, s, video, writer, K, dist_cv):
 
         # ---------------------------------------------------------------
         # Tracking loop
-        print("hi")
+        #print("hi")
         ret, frame = video.read()
         frame= cv2.undistort(frame, K, dist_cv, None, K)
-        if frame is None:
-            print("Frame")
+        # if frame is None:
+        #     #print("Frame")
         pose, annotated = get_pose(frame)
         if pose is None:
             print("none")
             continue
-        print("here")
+        #print("here")
         writer.write(annotated)
         x, y, theta = pose
         target = np.array(points[idx])   # SAFE because we've checked None
@@ -135,10 +135,10 @@ def move_to_points(points, s, video, writer, K, dist_cv):
         diff = target - current
         dist = np.linalg.norm(diff)
 
-        print("\n==============================")
-        print(f"Target {idx}: {target}")
-        print(f"Current: {current}")
-        print(f"Distance: {dist:.2f}")
+        # print("\n==============================")
+        # print(f"Target {idx}: {target}")
+        # print(f"Current: {current}")
+        # print(f"Distance: {dist:.2f}")
 
         if(idx == (len(points)-1) and dist < STOP_DIST_FINAL):
                send_cmd(s, "STOP")
@@ -171,7 +171,7 @@ def move_to_points(points, s, video, writer, K, dist_cv):
         print(f"rot = {rot}")
 
         #cmd = f"MOVE {int(angle_error)} {int(power)} 0 0"
-        cmd = f"MOVE {int(angle_error)} 60 {int(min(80, (rot)))} 0"
+        cmd = f"MOVE {int(angle_error)} 50 {int(min(80, (rot)))} 0"
         send_cmd(s, cmd)
         # idx +=1
         # time.sleep(10)

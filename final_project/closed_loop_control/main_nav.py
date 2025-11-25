@@ -61,7 +61,7 @@ if __name__ == "__main__":
     # move_to_points must return annotated frame each cycle
     # ------------------------------------------------------------
     try:
-        print("here")
+        #print("here")
         move_to_points(points, s, video, writer, K, dist)  
         #            ↑ pass writer as argument
         
