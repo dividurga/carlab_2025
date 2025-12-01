@@ -1,7 +1,7 @@
 # zeus_client.py
 import socket
 import time
-from final_project.closed_loop_control.zeus_nav import move_to_points
+from zeus_nav import move_to_points
 ESP32_IP = "192.168.4.1"  # ESP32 AP default IP if you used AP mode
 ESP32_PORT = 8888
 
@@ -20,7 +20,7 @@ if __name__ == "__main__":
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect((ESP32_IP, ESP32_PORT))
     time.sleep(1)
-    send_cmd(s, "MOVE 90 60 0 0")
+    send_cmd(s, "MOVE 0 60 80 0")
     move_to_points()
     # example commands
     # for i in range (0,100):

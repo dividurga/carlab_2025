@@ -171,7 +171,7 @@ def move_to_points(points, s, video, writer, K, dist_cv):
         print(f"rot = {rot}")
 
         #cmd = f"MOVE {int(angle_error)} {int(power)} 0 0"
-        cmd = f"MOVE {int(angle_error)} 50 {int(min(80, (rot)))} 0"
+        cmd = f"MOVE {int(angle_error)} 70 {int(min(80, (rot)))} 0"
         send_cmd(s, cmd)
         # idx +=1
         # time.sleep(10)
