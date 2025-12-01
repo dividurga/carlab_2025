@@ -112,15 +112,15 @@ def image_to_minimal_line_drawing_simplified(image_path, output_path):
             print("No face found."); return
         face_landmarks = res.multi_face_landmarks[0]
 
-    # ---- Facial features ----
-    for name, idxs in FACIAL_FEATURES.items():
-        if "center" in name: continue
-        draw_feature(final_line_drawing, face_landmarks.landmark, idxs)
-    for iris_name, iris_indices in EYEBALLS.items():
-        if "left" in iris_name:
-            draw_eyeball_clipped(final_line_drawing, face_landmarks.landmark, iris_indices, 160, 145)
-        else:
-            draw_eyeball_clipped(final_line_drawing, face_landmarks.landmark, iris_indices, 385, 374)
+    # # ---- Facial features ----
+    # for name, idxs in FACIAL_FEATURES.items():
+    #     if "center" in name: continue
+    #     draw_feature(final_line_drawing, face_landmarks.landmark, idxs)
+    # for iris_name, iris_indices in EYEBALLS.items():
+    #     if "left" in iris_name:
+    #         draw_eyeball_clipped(final_line_drawing, face_landmarks.landmark, iris_indices, 160, 145)
+    #     else:
+    #         draw_eyeball_clipped(final_line_drawing, face_landmarks.landmark, iris_indices, 385, 374)
 
     # ---- Hair segmentation ----
     hair_outline = np.ones((H, W), dtype=np.uint8) * 255
@@ -191,7 +191,7 @@ FACE_DETECT_CONF = 0.6
 mp_face = mp.solutions.face_detection
 
 def capture_centered_face(output_path=CAPTURE_PATH):
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(1)
     detector = mp_face.FaceDetection(model_selection=0, min_detection_confidence=FACE_DETECT_CONF)
     print("📷 Starting camera. Center your face to capture automatically...")
 

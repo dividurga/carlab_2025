@@ -103,18 +103,18 @@ def move_to_points(points, s, video, writer, K, dist):
             send_cmd(s, "STOP")
             return  # exit function entirely
 
-        # # ---------------------------------------------------------------
-        # # PEN UP / DOWN HANDLING (minimal addition)
-        # # ---------------------------------------------------------------
-        # if points[idx] is None:
-        #     print("PEN UP")
-        #     send_cmd(s, "UP")
-        #     idx += 1
-        #     continue
+        # ---------------------------------------------------------------
+        # PEN UP / DOWN HANDLING (minimal addition)
+        # ---------------------------------------------------------------
+        if points[idx] is None:
+            print("PEN UP")
+            send_cmd(s, "UP")
+            idx += 1
+            continue
 
-        # if idx == 0 or points[idx-1] is None:
-        #     print("PEN DOWN")
-        #     send_cmd(s, "D")
+        if idx == 0 or points[idx-1] is None:
+            print("PEN DOWN")
+            send_cmd(s, "D")
 
         # ---------------------------------------------------------------
         # Tracking loop

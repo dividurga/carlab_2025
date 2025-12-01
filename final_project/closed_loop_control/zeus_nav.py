@@ -2,6 +2,8 @@ import numpy as np
 import socket, time, sys
 from aruco_localization import get_pose
 import cv2
+import csv
+coord_log = []
 # OS-portable non-blocking keyboard check
 def key_pressed():
     try:
@@ -24,8 +26,8 @@ KP = 0.4
 KI = 0.0
 KD = 20
 
-K_ROT = .6
-K_ROT_D = .8
+K_ROT = 1.6
+K_ROT_D = 1.6
 K_ROT_I = 0 # this is fucking stuff up
 MIN_ROT_POWER = 0
 MAX_ROT_POWER = 60
@@ -55,7 +57,7 @@ def compute_rot(angle_error):
         return 0
     
     if abs(rot_error) < 15:
-        p = 4.0 * K_ROT * rot_error
+        p = K_ROT * rot_error
     else:
         p = K_ROT * rot_error
     # ----- P TERM -----
@@ -91,6 +93,7 @@ def move_to_points(points, s, video, writer, K, dist_cv):
     STOP_DIST = 3
     STOP_DIST_FINAL = 4
     idx = 0
+    pen_is_down = False
 
     print("Press 'q' at any time to STOP and quit.")
 
@@ -101,21 +104,29 @@ def move_to_points(points, s, video, writer, K, dist_cv):
         if c and c.lower() == 'q':
             print("\n[QUIT] q pressed → stopping robot...")
             send_cmd(s, "STOP")
+            with open("err_log.csv", "w", newline="") as f:
+                w = csv.writer(f)
+                w.writerow(["theta"])
+                for th in coord_log:
+                    w.writerow([th])
             return  # exit function entirely
 
-        # # ---------------------------------------------------------------
-        # # PEN UP / DOWN HANDLING (minimal addition)
-        # # ---------------------------------------------------------------
+        # ------------------- PEN UP / DOWN HANDLING --------------------
+        # # Skip stroke breaks (None entries)
         # if points[idx] is None:
-        #     print("PEN UP")
-        #     send_cmd(s, "UP")
+        #     if pen_is_down:
+        #         print("PEN UP")
+        #         send_cmd(s, "UP")
+        #         pen_is_down = False
         #     idx += 1
         #     continue
 
-        # if idx == 0 or points[idx-1] is None:
+        # # If pen is up and we just arrived at a new stroke → pen down
+        # if not pen_is_down:
         #     print("PEN DOWN")
         #     send_cmd(s, "D")
-
+        #     pen_is_down = True
+# --------------------------------------------------------------
         # ---------------------------------------------------------------
         # Tracking loop
         #print("hi")
@@ -134,7 +145,7 @@ def move_to_points(points, s, video, writer, K, dist_cv):
         current = np.array([x, y])
         diff = target - current
         dist = np.linalg.norm(diff)
-
+        
         # print("\n==============================")
         # print(f"Target {idx}: {target}")
         # print(f"Current: {current}")
@@ -154,7 +165,7 @@ def move_to_points(points, s, video, writer, K, dist_cv):
         angle_error = 90 - (desired_angle + theta)
        
 
-        
+        coord_log.append(angle_error)
         
 
         rot = compute_rot(theta)
@@ -171,9 +182,15 @@ def move_to_points(points, s, video, writer, K, dist_cv):
         print(f"rot = {rot}")
 
         #cmd = f"MOVE {int(angle_error)} {int(power)} 0 0"
-        cmd = f"MOVE {int(angle_error)} 70 {int(min(80, (rot)))} 0"
+        cmd = f"MOVE {int(angle_error)} 80 {int(min(80, (rot)))} 0"
+        #cmd = f"MOVE {90} {int(power)} {0} 0"
+        #cmd = f"MOVE 90 60 {int(min(80, (rot)))} 0"
         send_cmd(s, cmd)
         # idx +=1
         # time.sleep(10)
         # send_cmd(s, "STOP")
-
+    with open("err_log.csv", "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["theta"])
+        for th in coord_log:
+            w.writerow([th])
