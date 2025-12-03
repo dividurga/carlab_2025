@@ -10,7 +10,9 @@ void setup() {
   Serial.begin(115200);      // UART from ESP32-CAM (pins 0 and 1)
   carBegin();                // initialize motors, PWM, etc.
   Serial.println("UNO car controller ready");
+  delay(1);
   servo.attach(servoPin);
+  servo.write(90);
 }
 
 int angle = 90;
@@ -98,19 +100,19 @@ else if (cmd == "READ") {
     Serial.println(compassReadAngle());
 }
   // move from 90 to 200 degrees
-  else if (cmd == "UP"){
-  for(int angle = 90; angle < 200; angle++)  
+  else if (cmd == "D"){
+  for(int angle = 90; angle < 180; angle++)  
   {                                  
     servo.write(angle);               
-    delay(5);                   
+    delayMicroseconds(500);                   
   } 
   }
-  else if (cmd == "D"){
+  else if (cmd == "UP"){
   // move back from 200 to 90 degrees
-  for(int angle = 200; angle > 90; angle--)    
+  for(int angle = 180; angle > 90; angle--)    
   {                                
     servo.write(angle);           
-    delay(5);       
+    delayMicroseconds(500);       
   } 
   }
   // -------------------------------------------------
@@ -137,6 +139,8 @@ void loop() {
       if (buf.length() > 200) buf = "";   // safety clear
     }
   }  
+  
+  
 }
 void compassCalibrate() {
   Serial.println("Starting compass calibration...");

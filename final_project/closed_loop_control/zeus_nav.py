@@ -31,7 +31,7 @@ K_ROT_D = 1.6
 K_ROT_I = 0 # this is fucking stuff up
 MIN_ROT_POWER = 0
 MAX_ROT_POWER = 60
-
+waypointReached = False
 last_error = 0.0
 error_integral = 0.0
 
@@ -94,7 +94,7 @@ def move_to_points(points, s, video, writer, K, dist_cv):
     STOP_DIST_FINAL = 4
     idx = 0
     pen_is_down = False
-
+    waypointReached = False
     print("Press 'q' at any time to STOP and quit.")
 
     while idx < (len(points)):
@@ -111,21 +111,21 @@ def move_to_points(points, s, video, writer, K, dist_cv):
                     w.writerow([th])
             return  # exit function entirely
 
-        # ------------------- PEN UP / DOWN HANDLING --------------------
-        # # Skip stroke breaks (None entries)
-        # if points[idx] is None:
-        #     if pen_is_down:
-        #         print("PEN UP")
-        #         send_cmd(s, "UP")
-        #         pen_is_down = False
-        #     idx += 1
-        #     continue
+        #------------------- PEN UP / DOWN HANDLING --------------------
+        # Skip stroke breaks (None entries)
+        if points[idx] is None and waypointReached:
+            if pen_is_down:
+                print("PEN UP")
+                send_cmd(s, "UP")
+                pen_is_down = False
+            idx += 1
+            continue
 
-        # # If pen is up and we just arrived at a new stroke → pen down
-        # if not pen_is_down:
-        #     print("PEN DOWN")
-        #     send_cmd(s, "D")
-        #     pen_is_down = True
+        # If pen is up and we just arrived at a new stroke → pen down
+        if not pen_is_down:
+            print("PEN DOWN")
+            send_cmd(s, "D")
+            pen_is_down = True
 # --------------------------------------------------------------
         # ---------------------------------------------------------------
         # Tracking loop
@@ -165,7 +165,7 @@ def move_to_points(points, s, video, writer, K, dist_cv):
         angle_error = 90 - (desired_angle + theta)
        
 
-        coord_log.append(angle_error)
+        coord_log.append(theta)
         
 
         rot = compute_rot(theta)
@@ -177,15 +177,17 @@ def move_to_points(points, s, video, writer, K, dist_cv):
         # if power < MIN_DRIVE_POWER:
         #     power = MIN_DRIVE_POWER
 
-        power = 60
-        print(f"Power = {power}, angle_error: {angle_error}")
-        print(f"rot = {rot}")
-
+       
+        if (angle_error >= 70 or angle_error<=-70):
+            power = 100
+        else:
+            power = 50
         #cmd = f"MOVE {int(angle_error)} {int(power)} 0 0"
-        cmd = f"MOVE {int(angle_error)} 80 {int(min(80, (rot)))} 0"
+        cmd = f"MOVE {int(angle_error)} {power} {int(min(80, (rot)))} 0"
         #cmd = f"MOVE {90} {int(power)} {0} 0"
         #cmd = f"MOVE 90 60 {int(min(80, (rot)))} 0"
         send_cmd(s, cmd)
+        print(cmd)
         # idx +=1
         # time.sleep(10)
         # send_cmd(s, "STOP")

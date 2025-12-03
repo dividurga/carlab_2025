@@ -20,7 +20,7 @@ if __name__ == "__main__":
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect((ESP32_IP, ESP32_PORT))
     #time.sleep(1)
-    send_cmd(s, f"MOVE {90} 80 {80} 0")
+    send_cmd(s, f"UP")
     print("sent")
     # example commands
     # for i in range (0,100):

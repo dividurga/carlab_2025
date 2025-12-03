@@ -26,10 +26,10 @@ void carBegin() {
     SoftPWMSetFadeTime(MOTOR_PINS[i], 100, 100);
   }
 
-  compassBegin();
-  for (uint8_t i = 0; i < AVERAGE_FILTER_SIZE; i++) {
-    carResetHeading();
-  }
+  //compassBegin();
+  // for (uint8_t i = 0; i < AVERAGE_FILTER_SIZE; i++) {
+  //   carResetHeading();
+  // }
 
 }
 
