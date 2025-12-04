@@ -124,7 +124,8 @@ def get_pose(frame):
 if __name__ == "__main__":
     print("🎥 Opening camera... Press 'q' to quit.")
     cap = cv2.VideoCapture(0)
-
+    data = np.load("camera_calib.npz")
+    K = data["K"]; dist = data["dist"]
     if not cap.isOpened():
         print("❌ Error: could not open camera.")
         exit()
@@ -134,7 +135,7 @@ if __name__ == "__main__":
         if not ret:
             print("⚠️ Frame capture failed.")
             continue
-
+        frame= cv2.undistort(frame, K, dist, None, K)
         pose, vis = get_pose(frame)
         if pose:
             x, y, th = pose

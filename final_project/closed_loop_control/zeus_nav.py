@@ -31,7 +31,7 @@ K_ROT_D = 1.6
 K_ROT_I = 0 # this is fucking stuff up
 MIN_ROT_POWER = 0
 MAX_ROT_POWER = 60
-waypointReached = False
+
 last_error = 0.0
 error_integral = 0.0
 
@@ -91,10 +91,10 @@ def move_to_points(points, s, video, writer, K, dist_cv):
     MIN_DRIVE_POWER = 0
     K_DIST = 40
     STOP_DIST = 3
-    STOP_DIST_FINAL = 4
+    STOP_DIST_FINAL = 3
     idx = 0
     pen_is_down = False
-    waypointReached = False
+ 
     print("Press 'q' at any time to STOP and quit.")
 
     while idx < (len(points)):
@@ -104,6 +104,7 @@ def move_to_points(points, s, video, writer, K, dist_cv):
         if c and c.lower() == 'q':
             print("\n[QUIT] q pressed → stopping robot...")
             send_cmd(s, "STOP")
+            send_cmd(s, "UP")
             with open("err_log.csv", "w", newline="") as f:
                 w = csv.writer(f)
                 w.writerow(["theta"])
@@ -113,7 +114,7 @@ def move_to_points(points, s, video, writer, K, dist_cv):
 
         #------------------- PEN UP / DOWN HANDLING --------------------
         # Skip stroke breaks (None entries)
-        if points[idx] is None and waypointReached:
+        if points[idx] is None:
             if pen_is_down:
                 print("PEN UP")
                 send_cmd(s, "UP")
@@ -160,6 +161,10 @@ def move_to_points(points, s, video, writer, K, dist_cv):
             print("Waypoint reached")
             continue
         
+        # if (np.abs((target - current)[0]) <=2 and np.abs((target - current)[1]) <= 2):
+        #     idx += 1
+        #     print("Waypoint reached")
+        #     continue
         # DESIRED ANGLE
         desired_angle = np.degrees(np.arctan2(diff[1], diff[0]))
         angle_error = 90 - (desired_angle + theta)
@@ -178,10 +183,9 @@ def move_to_points(points, s, video, writer, K, dist_cv):
         #     power = MIN_DRIVE_POWER
 
        
-        if (angle_error >= 70 or angle_error<=-70):
+        if (angle_error <= 120 and angle_error>= 60) or (angle_error >= -120 and angle_error<= -60):
             power = 100
-        else:
-            power = 50
+        else: power = 60
         #cmd = f"MOVE {int(angle_error)} {int(power)} 0 0"
         cmd = f"MOVE {int(angle_error)} {power} {int(min(80, (rot)))} 0"
         #cmd = f"MOVE {90} {int(power)} {0} 0"
@@ -191,8 +195,10 @@ def move_to_points(points, s, video, writer, K, dist_cv):
         # idx +=1
         # time.sleep(10)
         # send_cmd(s, "STOP")
+    send_cmd(s, "UP")
     with open("err_log.csv", "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["theta"])
         for th in coord_log:
             w.writerow([th])
+    
