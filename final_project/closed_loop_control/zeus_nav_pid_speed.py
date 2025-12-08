@@ -85,9 +85,9 @@ def send_cmd(s, cmd):
 # ========================================================================
 
 # ===================== LINEAR DISTANCE PID ==========================
-LIN_KP = 0.8
-LIN_KI = 0.02
-LIN_KD = 0.3
+LIN_KP = 0.002
+LIN_KI = 0.0003
+LIN_KD = 2
 
 dist_last_err = 0
 dist_err_int = 0
@@ -96,8 +96,8 @@ dist_err_int = 0
 
 def move_to_points(points, s, video, writer, K, dist_cv):
 
-    MAX_POWER = 150         # allow PID to add on top
-    MIN_POWER = 40          # always give some thrust
+    MAX_POWER = 100         # allow PID to add on top
+    MIN_POWER = 0          # always give some thrust
     STOP_DIST = 3
     STOP_DIST_FINAL = 3
     idx = 0
@@ -116,7 +116,8 @@ def move_to_points(points, s, video, writer, K, dist_cv):
             send_cmd(s, "UP")
             return
 
-        #------------------- PEN UP / DOWN HANDLING --------------------
+        #------------------- PEN LOGIC --------------------
+        # Stroke break → None means end of stroke
         if points[idx] is None:
             if pen_is_down:
                 print("PEN UP")
@@ -124,11 +125,6 @@ def move_to_points(points, s, video, writer, K, dist_cv):
                 pen_is_down = False
             idx += 1
             continue
-
-        if not pen_is_down:
-            print("PEN DOWN")
-            send_cmd(s, "D")
-            pen_is_down = True
 
         # ---------------------------------------------------------------
         # Tracking loop
@@ -145,17 +141,24 @@ def move_to_points(points, s, video, writer, K, dist_cv):
 
         diff = target - current
         dist = np.linalg.norm(diff)
-
+        print("now here")
         if idx == len(points)-1 and dist < STOP_DIST_FINAL:
             send_cmd(s, "STOP")
             break
 
-        # ARRIVAL
+        # ARRIVALq  wsad 
         if dist < STOP_DIST:
-            idx += 1
             print("Waypoint reached")
-            dist_err_int = 0  # reset integral
+
+            # Pen goes DOWN only when we REACH a real waypoint
+            if not pen_is_down:
+                print("PEN DOWN")
+                send_cmd(s, "D")
+                pen_is_down = True
+
+            idx += 1
             continue
+        # -----------------------
 
         # DESIRED ANGLE
         desired_angle = np.degrees(np.arctan2(diff[1], diff[0]))
@@ -169,6 +172,21 @@ def move_to_points(points, s, video, writer, K, dist_cv):
         # ===============================================================
         dist_err = dist
 
+                # ===============================================================
+        # (2) BASE POWER FROM MOVEMENT TYPE DUE TO ASYMMETRY IN MECHANICAL RESPONSE
+        # ===============================================================
+
+
+        centre = (angle_error >= -40 and angle_error <= 40) or (angle_error >= 140 and angle_error <= 220)
+        
+        base_power = 60 if centre else 100
+        # ===============================================================
+
+        # ===============================================================
+        #  (1) LINEAR PID CONTROL BASED ON DISTANCE
+        #      Extra damping + softer push for forward/back
+        # ===============================================================
+
         # P
         p_lin = LIN_KP * dist_err
 
@@ -176,29 +194,38 @@ def move_to_points(points, s, video, writer, K, dist_cv):
         dist_err_int += dist_err
         i_lin = LIN_KI * dist_err_int
 
-        # D
-        d_lin = LIN_KD * (dist_err - dist_last_err)
+        # D  ---- more damping when NOT sideways ----
+        kd_eff = LIN_KD * (25.0 if centre else 1.0)
+        d_lin = kd_eff * (dist_err - dist_last_err)
         dist_last_err = dist_err
+
+        # soften P when going mostly straight (forward/back)
+        if centre:
+            p_lin *= 0.6
 
         pid_out = p_lin + i_lin + d_lin
         # ===============================================================
 
-        # ===============================================================
-        # (2) BASE POWER FROM MOVEMENT TYPE DUE TO ASYMMETRY IN MECHANICAL RESPONSE
-        # ===============================================================
-        sideways = ((angle_error <= 120 and angle_error >= 60) or 
-                    (angle_error >= -120 and angle_error <= -60))
+        # Final commanded power
+        power_cap = 60 if centre else MAX_POWER   # forward/back is capped
+        power = int(np.clip(base_power + pid_out, MIN_POWER, power_cap))
 
-        base_power = 100 if sideways else 60
         # ===============================================================
+        # Smooth baseline power (does not change PID behavior)
+        # theta_rad = np.deg2rad(angle_error)
 
+        # # smooth gain: 0 at 0°, 1 at ±90°, 0 at ±180°
+        # gain = abs(np.sin(theta_rad))
+
+        # base_power = 35 + 55 * gain  # between 40 and 100
         # Final commanded power
         power = int(np.clip(base_power + pid_out, MIN_POWER, MAX_POWER))
 
         cmd = f"MOVE {int(angle_error)} {power} {int(min(80, rot))} 0"
         send_cmd(s, cmd)
-        print(cmd)
-
+        coord_log.append(power)
+        #print(cmd)
+        print("angle err, ", angle_error, "desired angle", desired_angle, "theta", theta, "power", power)
     send_cmd(s, "UP")
 
     with open("err_log.csv", "w", newline="") as f:

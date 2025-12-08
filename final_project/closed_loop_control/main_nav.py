@@ -2,7 +2,7 @@
 import csv
 import cv2
 import socket
-from zeus_nav import move_to_points
+from zeus_nav_pid_speed import move_to_points
 import time
 import numpy as np
 ESP32_IP = "192.168.4.1"

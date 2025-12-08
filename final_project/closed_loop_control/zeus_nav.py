@@ -20,6 +20,7 @@ def key_pressed():
             return sys.stdin.read(1)
         return None
 
+waypoint_reached = False
 
 # ROTATION PID ------------------------------------------------------------
 KP = 0.4
@@ -92,13 +93,14 @@ def move_to_points(points, s, video, writer, K, dist_cv):
     K_DIST = 40
     STOP_DIST = 3
     STOP_DIST_FINAL = 3
+
     idx = 0
     pen_is_down = False
- 
+
     print("Press 'q' at any time to STOP and quit.")
 
     while idx < (len(points)):
-    #while True:
+
         # ---- QUIT CHECK ----
         c = key_pressed()
         if c and c.lower() == 'q':
@@ -110,10 +112,10 @@ def move_to_points(points, s, video, writer, K, dist_cv):
                 w.writerow(["theta"])
                 for th in coord_log:
                     w.writerow([th])
-            return  # exit function entirely
+            return
 
-        #------------------- PEN UP / DOWN HANDLING --------------------
-        # Skip stroke breaks (None entries)
+        #------------------- PEN LOGIC --------------------
+        # Stroke break → None means end of stroke
         if points[idx] is None:
             if pen_is_down:
                 print("PEN UP")
@@ -121,84 +123,64 @@ def move_to_points(points, s, video, writer, K, dist_cv):
                 pen_is_down = False
             idx += 1
             continue
+        # ------------------------------------------------
 
-        # If pen is up and we just arrived at a new stroke → pen down
-        if not pen_is_down:
-            print("PEN DOWN")
-            send_cmd(s, "D")
-            pen_is_down = True
-# --------------------------------------------------------------
-        # ---------------------------------------------------------------
-        # Tracking loop
-        #print("hi")
+        # Frame + pose
         ret, frame = video.read()
-        frame= cv2.undistort(frame, K, dist_cv, None, K)
-        # if frame is None:
-        #     #print("Frame")
+        frame = cv2.undistort(frame, K, dist_cv, None, K)
         pose, annotated = get_pose(frame)
         if pose is None:
-            print("none")
             continue
-        #print("here")
+
         writer.write(annotated)
+
         x, y, theta = pose
-        target = np.array(points[idx])   # SAFE because we've checked None
+        target = np.array(points[idx])
         current = np.array([x, y])
         diff = target - current
         dist = np.linalg.norm(diff)
-        
-        # print("\n==============================")
-        # print(f"Target {idx}: {target}")
-        # print(f"Current: {current}")
-        # print(f"Distance: {dist:.2f}")
 
-        if(idx == (len(points)-1) and dist < STOP_DIST_FINAL):
-               send_cmd(s, "STOP")
-               break
-        # ARRIVAL
+        # FINAL waypoint
+        if idx == len(points) - 1 and dist < STOP_DIST_FINAL:
+            send_cmd(s, "STOP")
+            break
+
+        # --------------------- ARRIVAL LOGIC -----------------------------
         if dist < STOP_DIST:
-            idx += 1
             print("Waypoint reached")
+
+            # Pen goes DOWN only when we REACH a real waypoint
+            if not pen_is_down:
+                print("PEN DOWN")
+                send_cmd(s, "D")
+                pen_is_down = True
+
+            idx += 1
             continue
-        
-        # if (np.abs((target - current)[0]) <=2 and np.abs((target - current)[1]) <= 2):
-        #     idx += 1
-        #     print("Waypoint reached")
-        #     continue
+        # -----------------------------------------------------------------
+
         # DESIRED ANGLE
         desired_angle = np.degrees(np.arctan2(diff[1], diff[0]))
         angle_error = 90 - (desired_angle + theta)
-       
 
         coord_log.append(theta)
-        
 
         rot = compute_rot(theta)
 
-        # # POWER
-        # raw_power = K_DIST * np.power(dist, 0.3)
-        # power = int(np.clip(raw_power, MIN_POWER, MAX_POWER))
-
-        # if power < MIN_DRIVE_POWER:
-        #     power = MIN_DRIVE_POWER
-
-       
-        if (angle_error <= 120 and angle_error>= 60) or (angle_error >= -120 and angle_error<= -60):
+        # sideways vs forward movement
+        if (angle_error <= 95 and angle_error >= 85) or (angle_error >= -95 and angle_error <= -85):
             power = 100
-        else: power = 60
-        #cmd = f"MOVE {int(angle_error)} {int(power)} 0 0"
-        cmd = f"MOVE {int(angle_error)} {power} {int(min(80, (rot)))} 0"
-        #cmd = f"MOVE {90} {int(power)} {0} 0"
-        #cmd = f"MOVE 90 60 {int(min(80, (rot)))} 0"
+        else:
+            power = 60
+
+        cmd = f"MOVE {int(angle_error)} {power} {int(min(80, rot))} 0"
         send_cmd(s, cmd)
         print(cmd)
-        # idx +=1
-        # time.sleep(10)
-        # send_cmd(s, "STOP")
+
     send_cmd(s, "UP")
     with open("err_log.csv", "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["theta"])
         for th in coord_log:
             w.writerow([th])
-    
+
