@@ -85,7 +85,7 @@ def send_cmd(s, cmd):
 
 # ========================================================================
 
-def move_to_points(points, s, video, writer, K, dist_cv):
+def move_to_points(points, s, video, K, dist_cv):
 
     MAX_POWER = 30
     MIN_POWER = 0
@@ -132,7 +132,7 @@ def move_to_points(points, s, video, writer, K, dist_cv):
         if pose is None:
             continue
 
-        writer.write(annotated)
+        #writer.write(annotated)
 
         x, y, theta = pose
         target = np.array(points[idx])

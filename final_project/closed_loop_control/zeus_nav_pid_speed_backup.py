@@ -94,7 +94,7 @@ dist_err_int = 0
 # ===================================================================
 
 
-def move_to_points(points, s, video, writer, K, dist_cv):
+def move_to_points(points, s, video, K, dist_cv):
 
     MAX_POWER = 100         # allow PID to add on top
     MIN_POWER = 0          # always give some thrust
@@ -134,7 +134,7 @@ def move_to_points(points, s, video, writer, K, dist_cv):
         if pose is None:
             continue
 
-        writer.write(annotated)
+        #writer.write(annotated)
         x, y, theta = pose
         target = np.array(points[idx])
         current = np.array([x, y])

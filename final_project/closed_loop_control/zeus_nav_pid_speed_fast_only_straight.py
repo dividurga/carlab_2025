@@ -113,7 +113,8 @@ def move_to_points(points, s, video, K, dist_cv):
     # --------------------------
     SCALE = 0.5
     INV_SCALE = 1.0 / SCALE
-
+    rot_stable_count = 0
+    ROT_STABLE_FRAMES = 10
     MAX_POWER = 130
     MIN_POWER = 0
     STOP_DIST_FINAL = 2
@@ -228,32 +229,42 @@ def move_to_points(points, s, video, K, dist_cv):
         # ------------------------------------------------------
         # ANGLE + ROTATION PID (ROTATE-IN-PLACE PHASE)
         # ------------------------------------------------------
+        # ------------------------------------------------------
+        # ANGLE + ROTATION PID (ROTATE-IN-PLACE PHASE)
+        # ------------------------------------------------------
         desired_angle = np.degrees(np.arctan2(diff[1], diff[0]))
-        # Keep your original convention:
         angle_error = 90 - (desired_angle + theta)
         angle_error = wrap180(angle_error)
 
         print("angle err:", angle_error,
-              "desired angle:", desired_angle,
-              "theta:", theta,
-              "dist:", dist)
+            "desired angle:", desired_angle,
+            "theta:", theta,
+            "dist:", dist)
 
         if aligning:
-            # If we are not yet aligned, rotate in place using PID,
-            # no linear motion at all.
-            if abs(angle_error) > ANGLE_TOL:
+            # --- ROTATIONAL HYSTERESIS ---
+            if abs(angle_error) < ANGLE_TOL:
+                rot_stable_count += 1
+                # hold perfectly still during stability check
+                send_cmd(s, "STOP")
+            else:
+                rot_stable_count = 0
+                # do normal rotation
                 rot = compute_rot(theta, desired_angle)
                 rot = int(np.clip(rot, -MAX_ROT_POWER, MAX_ROT_POWER))
                 cmd = f"MOVE 0 0 {rot} 0"
                 send_cmd(s, cmd)
                 coord_log.append(rot)
                 continue
-            else:
-                # Good enough alignment – zero out rotation PID state
-                print("Alignment complete, switching to straight-line drive.")
+
+            # Only exit aligning if stable for enough frames
+            if rot_stable_count >= ROT_STABLE_FRAMES:
+                print("Rotation stable → switch to DRIVE")
                 last_error = 0
                 error_integral = 0
-                aligning = False  # now we’re in DRIVE phase
+                rot_stable_count = 0
+                aligning = False
+            continue
 
         # ------------------------------------------------------
         # LINEAR PID (STRAIGHT-LINE DRIVE ONLY)
