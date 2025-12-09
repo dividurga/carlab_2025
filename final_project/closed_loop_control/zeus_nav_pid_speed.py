@@ -92,32 +92,39 @@ LIN_KD = 2
 dist_last_err = 0
 dist_err_int = 0
 # ===================================================================
+CLOSE_DIST = 8.0        # start creep mode here
+ARRIVE_DIST = 3.0       # must get this close to declare arrival
+STABLE_FRAMES = 3       # require staying close for N frames
 
+stable_counter = 0
+dist_filt = None
+ALPHA = 0.45            # smoothing for noisy distance
 
 def move_to_points(points, s, video, writer, K, dist_cv):
 
-    MAX_POWER = 100         # allow PID to add on top
-    MIN_POWER = 0          # always give some thrust
+    MAX_POWER = 130
+    MIN_POWER = 0
     STOP_DIST = 3
-    STOP_DIST_FINAL = 3
+    STOP_DIST_FINAL = 2
     idx = 0
     pen_is_down = False
- 
+
     global dist_last_err, dist_err_int
+    global last_error, error_integral   # for rotation reset
+    
     print("Press 'q' at any time to STOP and quit.")
 
-    while idx < (len(points)):
+    while idx < len(points):
 
         # ---- QUIT CHECK ----
         c = key_pressed()
         if c and c.lower() == 'q':
-            print("\n[QUIT] q pressed → stopping robot...")
+            print("\n[QUIT] stopping robot...")
             send_cmd(s, "STOP")
             send_cmd(s, "UP")
             return
 
-        #------------------- PEN LOGIC --------------------
-        # Stroke break → None means end of stroke
+        # ---- Handle stroke breaks (None) ----
         if points[idx] is None:
             if pen_is_down:
                 print("PEN UP")
@@ -126,8 +133,7 @@ def move_to_points(points, s, video, writer, K, dist_cv):
             idx += 1
             continue
 
-        # ---------------------------------------------------------------
-        # Tracking loop
+        # ---- Get pose ----
         ret, frame = video.read()
         frame = cv2.undistort(frame, K, dist_cv, None, K)
         pose, annotated = get_pose(frame)
@@ -138,19 +144,36 @@ def move_to_points(points, s, video, writer, K, dist_cv):
         x, y, theta = pose
         target = np.array(points[idx])
         current = np.array([x, y])
-
         diff = target - current
         dist = np.linalg.norm(diff)
+        if (theta > 30):
+            send_cmd(f"UP")
+            
         print("now here")
+
+        # Final endpoint behavior
         if idx == len(points)-1 and dist < STOP_DIST_FINAL:
             send_cmd(s, "STOP")
             break
 
-        # ARRIVALq  wsad 
-        if dist < STOP_DIST:
-            print("Waypoint reached")
+        # ---- ARRIVAL WITH HYSTERESIS ----
+        global stable_counter
+        if dist < ARRIVE_DIST:
+            stable_counter += 1
+        else:
+            stable_counter = 0
 
-            # Pen goes DOWN only when we REACH a real waypoint
+        if stable_counter >= STABLE_FRAMES:
+            print("Waypoint reached (stable)")
+
+            # Reset rotation PID
+            last_error = 0
+            error_integral = 0
+
+            # Reset linear PID
+            dist_err_int = 0
+            dist_last_err = 0
+
             if not pen_is_down:
                 print("PEN DOWN")
                 send_cmd(s, "D")
@@ -158,34 +181,21 @@ def move_to_points(points, s, video, writer, K, dist_cv):
 
             idx += 1
             continue
-        # -----------------------
 
-        # DESIRED ANGLE
+        # ---- ANGLE + ROT PID ----
         desired_angle = np.degrees(np.arctan2(diff[1], diff[0]))
         angle_error = 90 - (desired_angle + theta)
 
-        # ROTATION PID
-        rot = compute_rot(theta)
+        rot = compute_rot(theta)   # you wanted to keep theta here
 
-        # ===============================================================
-        #  (1) LINEAR PID CONTROL BASED ON DISTANCE
-        # ===============================================================
+        # ---- Determine movement class ----
+        centre = ((angle_error >= -40 and angle_error <= 40) or
+                  (angle_error >= 140 and angle_error <= 220))
+
+        # -----------------------------------------------
+        #  LINEAR PID
+        # -----------------------------------------------
         dist_err = dist
-
-                # ===============================================================
-        # (2) BASE POWER FROM MOVEMENT TYPE DUE TO ASYMMETRY IN MECHANICAL RESPONSE
-        # ===============================================================
-
-
-        centre = (angle_error >= -40 and angle_error <= 40) or (angle_error >= 140 and angle_error <= 220)
-        
-        base_power = 60 if centre else 100
-        # ===============================================================
-
-        # ===============================================================
-        #  (1) LINEAR PID CONTROL BASED ON DISTANCE
-        #      Extra damping + softer push for forward/back
-        # ===============================================================
 
         # P
         p_lin = LIN_KP * dist_err
@@ -194,38 +204,51 @@ def move_to_points(points, s, video, writer, K, dist_cv):
         dist_err_int += dist_err
         i_lin = LIN_KI * dist_err_int
 
-        # D  ---- more damping when NOT sideways ----
+        # D
         kd_eff = LIN_KD * (25.0 if centre else 1.0)
         d_lin = kd_eff * (dist_err - dist_last_err)
         dist_last_err = dist_err
 
-        # soften P when going mostly straight (forward/back)
+        # -----------------------------------------------
+        #  MOVEMENT MODE LOGIC (CLEANED)
+        # -----------------------------------------------
         if centre:
-            p_lin *= 0.6
+            # FORWARD/BACK — CREEP MODE WHEN CLOSE
+            if dist < CLOSE_DIST:
+                base_power = 50
+                power_cap = 60
+                i_lin = 0                 # soften approach
+                kd_eff = LIN_KD * 3.0     # more damping near goal
+            else:
+                base_power = 60
+                power_cap = 60
+        else:
+            # -------------------------------------------
+            # SIDEWAYS — RESTORE ORIGINAL BEHAVIOR
+            # -------------------------------------------
+            base_power = 100
+            power_cap = MAX_POWER
+            i_lin = LIN_KI * dist_err_int   # restore original integral behavior
+            kd_eff = LIN_KD * 1.0           # original sideways derivative
+        # -----------------------------------------------
 
+        # Combine PID
         pid_out = p_lin + i_lin + d_lin
-        # ===============================================================
 
-        # Final commanded power
-        power_cap = 60 if centre else MAX_POWER   # forward/back is capped
+        # Final power
         power = int(np.clip(base_power + pid_out, MIN_POWER, power_cap))
 
-        # ===============================================================
-        # Smooth baseline power (does not change PID behavior)
-        # theta_rad = np.deg2rad(angle_error)
-
-        # # smooth gain: 0 at 0°, 1 at ±90°, 0 at ±180°
-        # gain = abs(np.sin(theta_rad))
-
-        # base_power = 35 + 55 * gain  # between 40 and 100
-        # Final commanded power
-        power = int(np.clip(base_power + pid_out, MIN_POWER, MAX_POWER))
-
-        cmd = f"MOVE {int(angle_error)} {power} {int(min(80, rot))} 0"
+        # Send command
+        cmd = f"MOVE {int(angle_error)} {power} 0 0"
+        cmd_rot = f"MOVE {int(angle_error)} {power} {int(min(100, rot))} 0"
         send_cmd(s, cmd)
+        send_cmd(s, cmd_rot)
         coord_log.append(power)
-        #print(cmd)
-        print("angle err, ", angle_error, "desired angle", desired_angle, "theta", theta, "power", power)
+
+        print("angle err,", angle_error,
+              "desired angle", desired_angle,
+              "theta", theta, "power", power)
+
     send_cmd(s, "UP")
 
     with open("err_log.csv", "w", newline="") as f:
@@ -233,4 +256,3 @@ def move_to_points(points, s, video, writer, K, dist_cv):
         w.writerow(["theta"])
         for th in coord_log:
             w.writerow([th])
-    
