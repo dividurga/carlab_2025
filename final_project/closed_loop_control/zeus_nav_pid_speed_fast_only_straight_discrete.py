@@ -91,7 +91,7 @@ dist_err_int = 0
 CLOSE_DIST = 8.0        # start creep mode here
 ARRIVE_DIST = 4.0       # must get this close to declare arrival
 STABLE_FRAMES = 3       # require staying close for N frames
-ANGLE_TOL = 10.0         # how well we must align before driving
+ANGLE_TOL = 5         # how well we must align before driving
 
 stable_counter = 0
 dist_filt = None
@@ -136,7 +136,7 @@ def move_to_points(points, s, video, K, dist_cv):
     global last_error, error_integral
     global stable_counter
 
-    aligning = True
+    aligning = False
 
     print("Press 'q' at any time to STOP and quit.")
 
@@ -161,7 +161,7 @@ def move_to_points(points, s, video, K, dist_cv):
                 send_cmd(s, "UP")
                 pen_is_down = False
             idx += 1
-            aligning = True
+            aligning = False
             continue
 
         # ------------------------------------------------------
@@ -242,51 +242,59 @@ def move_to_points(points, s, video, K, dist_cv):
               "theta:", theta,
               "dist:", dist)
 
-        if aligning:
-            # --- ROTATIONAL HYSTERESIS ---
-            if abs(angle_error) < ANGLE_TOL:
-                rot_stable_count += 1
-                send_cmd(s, "STOP")
-            else:
-                rot_stable_count = 0
-                rot = compute_rot(theta, desired_angle)
-                rot = int(np.clip(rot, -MAX_ROT_POWER, MAX_ROT_POWER))
-                cmd = f"MOVE 0 0 {rot} 0"
-                send_cmd(s, cmd)
-                coord_log.append(rot)
-                continue
+        # --- IMPULSE-BASED ROTATION CONTROL ---
+        # --- IMPULSE-BASED ROTATION CONTROL ---
+        rot_error = angle_error
+        if aligning and abs(rot_error) > ANGLE_TOL:
+            # direction: left (>0) or right (<0)
+            direction = -1 if rot_error > 0 else 1
 
-            if rot_stable_count >= ROT_STABLE_FRAMES:
-                print("Rotation stable → DRIVE mode")
-                last_error = 0
-                error_integral = 0
-                rot_stable_count = 0
-                aligning = False
+            # scale pulse length based on how far we are
+            pulse_ms = int(6 + 2 * abs(rot_error))
 
+            rot_power = 60  # constant power
+
+            cmd = f"MOVE 0 0 {direction * rot_power} 0"
+            send_cmd(s, cmd)
+            time.sleep(pulse_ms / 1000.0)
+
+            send_cmd(s, "STOP")
             continue
+        # Check if angle is within tolerance → accumulate stability frames
+        if aligning and abs(rot_error) <= ANGLE_TOL:
+            rot_stable_count += 1
+        else:
+            rot_stable_count = 0
+
+        # If stable long enough → alignment complete → resume drive
+        if aligning and rot_stable_count >= ROT_STABLE_FRAMES:
+            print("Alignment stable → switching to drive mode")
+            aligning = False
+            rot_stable_count = 0
+        
 
         # ------------------------------------------------------
         # CONSTANT POWER + STALL BOOST  (DRIVE MODE)
         # ------------------------------------------------------
+        if not aligning:
+            # Initialize last_dist_drive
+            if last_dist_drive is None:
+                last_dist_drive = dist
 
-        # Initialize last_dist_drive
-        if last_dist_drive is None:
+            # detect stall
+            if dist > last_dist_drive - STALL_THRESHOLD:
+                stall_power = min(int(stall_power * 1.2), MAX_STALL_POWER)
+                print("STALL → boosting power:", stall_power)
+            else:
+                stall_power = 20  # reset when moving normally
+
             last_dist_drive = dist
 
-        # detect stall
-        if dist > last_dist_drive - STALL_THRESHOLD:
-            stall_power = min(int(stall_power * 1.2), MAX_STALL_POWER)
-            print("STALL → boosting power:", stall_power)
-        else:
-            stall_power = 20  # reset when moving normally
+            power = stall_power
 
-        last_dist_drive = dist
-
-        power = stall_power
-
-        cmd = f"MOVE 0 {power} 0 0"
-        send_cmd(s, cmd)
-        coord_log.append(power)
+            cmd = f"MOVE 0 {power} 0 0"
+            send_cmd(s, cmd)
+            coord_log.append(power)
 
     # ----------------------------------------------------------
     # END

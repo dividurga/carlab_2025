@@ -22,6 +22,12 @@ if __name__ == "__main__":
     #time.sleep(1)
     send_cmd(s, f"MOVE 90 90 0 0")
     print("sent")
+    time.sleep(2)
+    send_cmd(s, f"STOP")
+    time.sleep(2)
+    send_cmd(s, f"MOVE -90 90 0 0")
+    time.sleep(2)
+    send_cmd(s, f"STOP")
     # example commands
     # for i in range (0,100):
     #     send_cmd(s, "UP")      # move forward
