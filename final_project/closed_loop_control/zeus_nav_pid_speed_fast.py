@@ -270,7 +270,7 @@ def move_to_points(points, s, video, K, dist_cv):
                 base_power = 60
                 power_cap = 60
         else:
-            base_power = 100
+            base_power = 120
             power_cap = MAX_POWER
             i_lin = LIN_KI * dist_err_int
             kd_eff = LIN_KD * 1.0
@@ -298,7 +298,7 @@ def move_to_points(points, s, video, K, dist_cv):
     # END
     # ----------------------------------------------------------
     send_cmd(s, "UP")
-
+    send_cmd(s, "STOP")
     with open("err_log.csv", "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["theta"])

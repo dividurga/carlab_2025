@@ -43,7 +43,17 @@ def wrap180(e):
         e += 360
     return e
 
-
+def pulse_move_linear(s, heading, power, ms):
+    """
+    heading: 0 = forward, 180 = backward
+    power: linear power
+    ms: duration of pulse
+    """
+    cmd = f"MOVE {heading} {power} 0 0"
+    send_cmd(s, cmd)
+    time.sleep(ms / 1000.0)
+    send_cmd(s, "STOP")
+    
 def compute_rot(current_heading, desired_heading):
     global last_error, error_integral
 
@@ -79,7 +89,7 @@ dist_err_int = 0
 # ===================================================================
 
 CLOSE_DIST = 8.0
-ARRIVE_DIST = 4.0
+ARRIVE_DIST = 2.0
 STABLE_FRAMES = 3
 ANGLE_TOL = 5
 
@@ -98,19 +108,27 @@ def move_to_points(points, s, video, K, dist_cv):
     )
 
     SCALE = 0.5
-    INV_SCALE = 1.0 / SCALE
 
     rot_stable_count = 0
     ROT_STABLE_FRAMES = 20
-
-    MAX_POWER = 130
-    MIN_POWER = 0
-    STOP_DIST_FINAL = 2
 
     stall_power = 20
     last_dist_drive = None
     STALL_THRESHOLD = 0.3
     MAX_STALL_POWER = 50
+
+    # -----------------------------
+    # NEW: Backup and forward offset state
+    # -----------------------------
+    BACKUP_DIST = 4.5
+    BACKUP_POWER = 30
+    backing_up = False
+    backup_start = None
+
+    FORWARD_DIST = 4.5         # NEW
+    FORWARD_POWER = 30     # NEW
+    forward_after_align = False
+    forward_start = None
 
     idx = 0
     pen_is_down = False
@@ -132,9 +150,6 @@ def move_to_points(points, s, video, K, dist_cv):
             send_cmd(s, "UP")
             return
 
-        # ------------------------------------------------------
-        # HANDLE STROKE BREAK
-        # ------------------------------------------------------
         if points[idx] is None:
             if pen_is_down:
                 print("PEN UP")
@@ -142,6 +157,8 @@ def move_to_points(points, s, video, K, dist_cv):
                 pen_is_down = False
             idx += 1
             aligning = False
+            backing_up = False
+            forward_after_align = False
             continue
 
         ret, frame = video.read()
@@ -149,7 +166,6 @@ def move_to_points(points, s, video, K, dist_cv):
             continue
 
         frame = cv2.remap(frame, map1, map2, cv2.INTER_LINEAR)
-
         small = cv2.resize(frame, None, fx=SCALE, fy=SCALE,
                            interpolation=cv2.INTER_AREA)
 
@@ -163,47 +179,108 @@ def move_to_points(points, s, video, K, dist_cv):
         diff = target - current
         dist = np.linalg.norm(diff)
 
-        if idx == len(points) - 1 and dist < STOP_DIST_FINAL:
+        # ======================================================
+        # STATE 1: BACKING UP (NEW)
+        # ======================================================
+        if backing_up:
+            moved = np.linalg.norm(current - backup_start)
+            print(f"[BACKUP] moved {moved:.2f} / {BACKUP_DIST:.2f}")
+
+            if moved < BACKUP_DIST:
+                cmd = f"MOVE 180 {BACKUP_POWER} 0 0"   # backward
+                send_cmd(s, cmd)
+                coord_log.append(-BACKUP_POWER)
+                continue
+            else:
+                print("[BACKUP] complete → PEN UP + ALIGN NEXT")
+                send_cmd(s, "STOP")
+
+                if pen_is_down:
+                    send_cmd(s, "UP")
+                    pen_is_down = False
+
+                backing_up = False
+                idx += 1
+
+                if idx >= len(points):
+                    break
+
+                if points[idx] is None:
+                    aligning = False
+                else:
+                    aligning = True
+                    rot_stable_count = 0
+
+                continue
+
+        # ======================================================
+        # If last point and close, finish
+        # ======================================================
+        if idx == len(points) - 1 and dist < 2 and not aligning:
             send_cmd(s, "STOP")
             break
 
+        # ======================================================
+        # Waypoint stable detection
+        # ======================================================
         if dist < ARRIVE_DIST:
             stable_counter += 1
         else:
             stable_counter = 0
 
         # ======================================================
-        # WAYPOINT REACHED → START ALIGNMENT → PEN UP
+        # START BACKUP (NEW - WITH PEN UP FIRST)
         # ======================================================
-        if stable_counter >= STABLE_FRAMES:
-            print("Waypoint reached (stable)")
+        if stable_counter >= STABLE_FRAMES and not backing_up:
+            print("Waypoint reached → PEN UP → start backup")
 
+            # NEW: Pen up BEFORE backing up
+            if pen_is_down:
+                print("PEN UP (before backup)")
+                send_cmd(s, "UP")
+                pen_is_down = False
+
+            # reset controllers
             last_error = 0
             error_integral = 0
             dist_err_int = 0
             dist_last_err = 0
 
-            # if pen_is_down:
-            #     print("PEN UP (start alignment)")
-            #     send_cmd(s, "UP")
-            #     pen_is_down = False
-
-            idx += 1
+            # begin backup phase
+            backup_start = current.copy()
+            backing_up = True
+            aligning = False
             stable_counter = 0
-            aligning = True
             continue
+
+        # ======================================================
+        # STATE 2: FORWARD OFFSET AFTER ALIGNMENT (NEW)
+        # ======================================================
+        if forward_after_align:
+            moved = np.linalg.norm(current - forward_start)
+            print(f"[FORWARD OFFSET] moved {moved:.2f} / {FORWARD_DIST:.2f}")
+
+            if moved < FORWARD_DIST:
+                cmd = f"MOVE 0 {FORWARD_POWER} 0 0"   # forward
+                send_cmd(s, cmd)
+                coord_log.append(FORWARD_POWER)
+                continue
+            else:
+                print("[FORWARD OFFSET] complete → PEN DOWN + resume drawing")
+                send_cmd(s, "STOP")
+
+                if not pen_is_down:
+                    send_cmd(s, "D")
+                    pen_is_down = True
+
+                forward_after_align = False
+                continue
 
         # ======================================================
         # ALIGNMENT MODE
         # ======================================================
         desired_angle = np.degrees(np.arctan2(diff[1], diff[0]))
-        angle_error = 90 - (desired_angle + theta)
-        angle_error = wrap180(angle_error)
-
-        print("angle err:", angle_error,
-              "desired:", desired_angle,
-              "theta:", theta,
-              "dist:", dist)
+        angle_error = wrap180(90 - (desired_angle + theta))
 
         if aligning and abs(angle_error) > ANGLE_TOL:
             direction = -1 if angle_error > 0 else 1
@@ -221,17 +298,16 @@ def move_to_points(points, s, video, K, dist_cv):
             rot_stable_count = 0
 
         # ======================================================
-        # ALIGNMENT COMPLETE → DRIVE → PEN DOWN
+        # ALIGNMENT COMPLETE → START FORWARD OFFSET (NEW)
         # ======================================================
         if aligning and rot_stable_count >= ROT_STABLE_FRAMES:
-            print("Alignment stable → switching to drive mode")
+            print("Alignment stable → forward offset phase BEGIN")
             aligning = False
             rot_stable_count = 0
 
-            if not pen_is_down:
-                print("PEN DOWN (resume drawing)")
-                send_cmd(s, "D")
-                pen_is_down = True
+            forward_after_align = True
+            forward_start = current.copy()
+            continue
 
         # ======================================================
         # DRIVE MODE
@@ -239,7 +315,6 @@ def move_to_points(points, s, video, K, dist_cv):
         if not aligning:
 
             if not pen_is_down:
-                print("PEN DOWN (drive start)")
                 send_cmd(s, "D")
                 pen_is_down = True
 
@@ -248,7 +323,6 @@ def move_to_points(points, s, video, K, dist_cv):
 
             if dist > last_dist_drive - STALL_THRESHOLD:
                 stall_power = min(int(stall_power * 1.2), MAX_STALL_POWER)
-                print("STALL → boosting power:", stall_power)
             else:
                 stall_power = 20
 

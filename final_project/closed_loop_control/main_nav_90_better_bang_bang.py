@@ -2,7 +2,7 @@
 import csv
 import cv2
 import socket
-from zeus_nav_pid_speed_fast_only_straight_discrete import move_to_points
+from zeus_nav_pid_speed_fast_only_straight_discrete_better_bang_bang import move_to_points
 import time
 import numpy as np
 ESP32_IP = "192.168.4.1"
@@ -24,7 +24,8 @@ if __name__ == "__main__":
     # ------------------------------------------------------------
     # Load path
     # ------------------------------------------------------------
-    points = load_csv("/Users/divija/Divi Drive/workplace/Princeton/Sem 5/Carlab/carlab_2025/ece_straight_act.csv")
+    points = load_csv("/Users/divija/Divi Drive/workplace/Princeton/Sem 5/Carlab/carlab_2025/square_helper"
+    ".csv")
     print("here")
     # ------------------------------------------------------------
     # Setup ESP32 socket

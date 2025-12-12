@@ -170,7 +170,7 @@ def tsp_order_strokes(paths):
 def save_paths_to_csv(paths, csv_path, W, H):
     with open(csv_path, "w", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow(["x", "y"])
+       #writer.writerow(["x", "y"])
         for p in paths:
             for (x, y) in p:
                 wx, wy = pixel_to_world(x, y, W, H)

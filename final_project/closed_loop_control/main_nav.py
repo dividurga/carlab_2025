@@ -24,8 +24,7 @@ if __name__ == "__main__":
     # ------------------------------------------------------------
     # Load path
     # ------------------------------------------------------------
-    points = load_csv("/Users/divija/Divi Drive/workplace/Princeton/Sem 5/Carlab/carlab_2025/ece_straight_act.csv")
-    print("here")
+    points = load_csv("/Users/divija/Divi Drive/workplace/Princeton/Sem 5/Carlab/carlab_2025/coords.csv")
     # ------------------------------------------------------------
     # Setup ESP32 socket
     # ------------------------------------------------------------
